@@ -8,6 +8,94 @@
     <link rel="stylesheet" href="css/LC.css" />
 </head>
 
+<style>
+        /* Стили для "друга" и overlay */
+        .friend-flash {
+            position: fixed;
+            left: 10px; /* слева */
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 9999;
+            width: 32px;
+            height: 25px;
+            image-rendering: pixelated; /* nearest-neighbor scaling */
+            transform-origin: center;
+            pointer-events: none;
+        }
+
+        /* overlay fullscreen black */
+        .friend-overlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .friend-overlay.show {
+            display: flex;
+        }
+
+        /* центральное изображение сцены */
+     .friend-overlay img.seq-img {
+    width: 32px;
+    height: 25px;
+    transform: scale(6);
+    transform-origin: center;
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+    background-color: black;        /* ← подложка для прозрачных краёв */
+    mix-blend-mode: normal;         /* гарантирует отсутствие цветовых искажений */
+    filter: contrast(110%) brightness(95%); /* убирает синеву по краям */
+}
+
+
+        /* при необходимости можно управлять скоростью появления */
+        .fade-fast {
+            transition: opacity 0.06s linear;
+        }
+
+        /* скрываем скролл при overlay */
+        body.friend-active {
+            overflow: hidden;
+        }
+    </style>
+
+    <!-- Скрипт раннего показа friend (выполняется как можно раньше) -->
+    <script>
+        (function earlyFriendFlash(){
+            // Создадим элемент немедленно — чтобы показать его до полной загрузки страницы
+            try {
+                var img = document.createElement('img');
+                img.src = 'DEVICE/friend.png';
+                img.className = 'friend-flash fade-fast';
+                img.style.opacity = '0';
+                // Добавим прямо в документ (если тело ещё не существует — добавим в head и потом переместим)
+                (document.body || document.documentElement).appendChild(img);
+
+                // Показать почти мгновенно и убрать через очень короткое время (80 мс)
+                // Используем requestAnimationFrame чтобы стиль применился
+                requestAnimationFrame(function(){
+                    img.style.opacity = '1';
+                    setTimeout(function(){
+                        // плавно убрать
+                        img.style.opacity = '0';
+                        setTimeout(function(){
+                            if (img && img.parentNode) img.parentNode.removeChild(img);
+                        }, 60);
+                    }, 20); // показываем ~80 мс
+                });
+            } catch (e) {
+                // безопасно молча
+                console.warn('earlyFriendFlash error', e);
+            }
+        })();
+    </script>
 
 <body>
 
@@ -47,7 +135,7 @@
         <p><label for="quality">Добротность контура:</label>
             <input id="quality" type="number" > </p>
 
-        <button type="button" onclick="calculateResonance()">Рассчитать !</button>
+        <button id="calcBtn">Рассчитать !</button>
 
         <p>Резонансная частота: <span id="Freq"></span></p>
         <p>Характеристическое сопротивление: <span id="res"></span></p>
@@ -115,6 +203,135 @@
                     return value;
             }
         }
+
+
+
+ (function setupFriendScene(){
+    var overlay = document.createElement('div');
+    overlay.className = 'friend-overlay';
+    overlay.id = 'friendOverlay';
+
+    var seqImg = document.createElement('img');
+    seqImg.className = 'seq-img';
+    seqImg.id = 'friendSeqImg';
+    overlay.appendChild(seqImg);
+
+    var textBlock = document.createElement('div');
+    textBlock.id = 'friendText';
+    textBlock.style.position = 'absolute';
+    textBlock.style.bottom = '150px';
+    textBlock.style.width = '100%';
+    textBlock.style.textAlign = 'center';
+    textBlock.style.fontSize = '24px';
+    textBlock.style.color = 'white';
+    textBlock.style.whiteSpace = 'pre';
+    textBlock.style.opacity = '1';
+    textBlock.style.transition = 'opacity 0.5s linear';
+    overlay.appendChild(textBlock);
+
+    document.body.appendChild(overlay);
+
+    var preload = [
+        'DEVICE/image1.png',
+        'DEVICE/image2.png',
+        'DEVICE/image3.png',
+        'DEVICE/laught1.png',
+        'DEVICE/laught2.png',
+        'DEVICE/friend.png'
+    ];
+    var cache = [];
+    preload.forEach(function(src){
+        var i = new Image();
+        i.src = src;
+        cache.push(i);
+    });
+
+    var audio = new Audio('DEVICE/snd_crowd_laught.mp3');
+    audio.preload = 'auto';
+
+    function typeText(text, callback){
+        var i = 0;
+        textBlock.textContent = '';
+        textBlock.style.opacity = '1';
+        var interval = setInterval(function(){
+            textBlock.textContent += text[i];
+            i++;
+            if(i >= text.length){
+                clearInterval(interval);
+                if(callback) callback();
+            }
+        }, 50);
+    }
+
+    function fadeOutText(callback){
+        textBlock.style.opacity = '0';
+        setTimeout(callback, 500);
+    }
+
+    function runFriendSequence(){
+        document.title = "im your friend";
+        document.body.classList.add('friend-active');
+        overlay.classList.add('show');
+        seqImg.style.display = 'none';
+
+        setTimeout(()=>{ seqImg.src = 'DEVICE/image1.png'; seqImg.style.display='block'; }, 1500);
+        setTimeout(()=>{ seqImg.src = 'DEVICE/image2.png'; }, 3000);
+        setTimeout(()=>{
+            seqImg.src = 'DEVICE/image3.png';
+            setTimeout(()=>{
+                typeText("don't forget...", ()=>{
+                    setTimeout(()=>{
+                        typeText("i with you in the dark", ()=>{
+                            setTimeout(()=>{
+                                fadeOutText(()=>{
+                                    var frames = 10;
+                                    var i = 0;
+                                    audio.currentTime = 0;
+                                    audio.play().catch(()=>{});
+                                    var laughInterval = setInterval(function(){
+                                        seqImg.src = (i%2===0)?'DEVICE/laught1.png':'DEVICE/laught2.png';
+                                        i++;
+                                        if(i>=frames){
+                                            clearInterval(laughInterval);
+                                            setTimeout(()=>{ window.location.href='index.html'; },50);
+                                        }
+                                    },150);
+                                });
+                            },1500);
+                        });
+                    },1500);
+                });
+            },1500);
+        },4500);
+    }
+
+    window.runFriendSequence = runFriendSequence;
+})();
+
+        // --- hook к кнопке расчета ---
+        (function attachCalcHook(){
+            var btn = document.getElementById('calcBtn');
+            if (!btn) return;
+            btn.addEventListener('click', function(){
+                // Вероятность 1/10
+                var roll = Math.random();
+                if (roll < 0.1) {
+                    // запускаем "друга" вместо расчета
+                    try {
+                        window.runFriendSequence();
+                    } catch (e) {
+                        console.error('Error running friend sequence', e);
+                        // fallback — делаем расчет
+                        calculateResonance();
+                    }
+                } else {
+                    // обычный расчет
+                    calculateResonance();
+                }
+            }, false);
+        })();
+
+
     </script>
 
 

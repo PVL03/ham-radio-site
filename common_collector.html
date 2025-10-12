@@ -2,49 +2,127 @@
 <html>
 <head>
     <title>Расчет усилителя по схеме с общим коллектором</title>
+    <meta charset="UTF-8">
     <h1 class="heading">Расчет усилителя по схеме с общим коллектором</h1>
     <link rel="stylesheet" href="css/c_collector.css" />
-</head>
+    <style>
+        /* Стили для "друга" и overlay */
+        .friend-flash {
+            position: fixed;
+            left: 10px; /* слева */
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 9999;
+            width: 32px;
+            height: 25px;
+            image-rendering: pixelated; /* nearest-neighbor scaling */
+            transform-origin: center;
+            pointer-events: none;
+        }
 
+        /* overlay fullscreen black */
+        .friend-overlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .friend-overlay.show {
+            display: flex;
+        }
+
+        /* центральное изображение сцены */
+        .friend-overlay img.seq-img {
+            width: 32px;
+            height: 25px;
+            transform: scale(6);
+            transform-origin: center;
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            -ms-interpolation-mode: nearest-neighbor;
+            background-color: black; /* подложка для прозрачных краёв */
+            mix-blend-mode: normal; /* гарантирует отсутствие цветовых искажений */
+            filter: contrast(110%) brightness(95%); /* убирает синеву по краям */
+        }
+
+        /* при необходимости можно управлять скоростью появления */
+        .fade-fast {
+            transition: opacity 0.06s linear;
+        }
+
+        /* скрываем скролл при overlay */
+        body.friend-active {
+            overflow: hidden;
+        }
+    </style>
+
+    <!-- Скрипт раннего показа friend (выполняется как можно раньше) -->
+    <script>
+        (function earlyFriendFlash(){
+            try {
+                var img = document.createElement('img');
+                img.src = 'DEVICE/friend.png';
+                img.className = 'friend-flash fade-fast';
+                img.style.opacity = '0';
+                (document.body || document.documentElement).appendChild(img);
+
+                requestAnimationFrame(function(){
+                    img.style.opacity = '1';
+                    setTimeout(function(){
+                        img.style.opacity = '0';
+                        setTimeout(function(){
+                            if (img && img.parentNode) img.parentNode.removeChild(img);
+                        }, 60);
+                    }, 20); // показываем ~80 мс
+                });
+            } catch (e) {
+                console.warn('earlyFriendFlash error', e);
+            }
+        })();
+    </script>
+</head>
 <body>
     <div class="description">
         На данной странице вы можете рассчитать значения компонентов для усилителя, собранного по схеме с общим коллектором
     </div>
 
     <div class="main">
-        
+        <div class="block-item">
+            <div class="circuit">
+                <img src="img/c_col.png" alt="Схема с общим коллектором">
+            </div>
+        </div>
 
         <div class="block-item">
-        <div class="circuit">
-            <img src="img/c_col.png" alt="">
+            <div class="calc">
+                <label for="supplyVoltage">Напряжение питания (В):</label>
+                <input id="supplyVoltage" type="number" step="0.1">
+
+                <p><label for="collectorCurrentA">Ток коллектора (мА):</label>
+                <input id="collectorCurrentA" type="number" step="0.1"></p>
+
+                <p><label for="transistorGain">Коэффициент усиления транзистора (β):</label>
+                <input id="transistorGain" type="number"></p>
+
+                <p><label for="minFrequency">Минимальная частота работы усилителя (Гц):</label>
+                <input id="minFrequency" type="number"></p>
+
+                <button id="calcBtn">Рассчитать!</button>
+
+                <h2>Результаты расчета:</h2>
+                <p>Сопротивление базы Rб1: <span id="baseResistance1"></span></p>
+                <p>Сопротивление базы Rб2: <span id="baseResistance2"></span></p>
+                
+                <p>Сопротивление эмиттера Rэ: <span id="emitterResistance"></span></p>
+                <p>Рекомендуемая емкость конденсаторов С1 и C2, не менее: <span id="capacitorValue"></span></p>
+            </div>
         </div>
-    </div>
-
-
-    <div class="block-item">
-        <div class="calc">
-            <label for="supplyVoltage">Напряжение питания (В):</label>
-            <input id="supplyVoltage" type="number" step="0.1">
-
-            <p><label for="collectorCurrentA">Ток коллектора (мА):</label>
-            <input id="collectorCurrentA" type="number" step="0.1"> </p>
-
-            <p> <label for="transistorGain">Коэффициент усиления транзистора (β):</label>
-            <input id="transistorGain" type="number"> </p>
-
-            <p> <label for="minFrequency">Минимальная частота работы усилителя (Гц):</label>
-            <input id="minFrequency" type="number"> </p>
-
-            <button onclick="calculateResistances()">Рассчитать !</button>
-
-            <h2>Результаты расчета:</h2>
-            <p>Сопротивление базы Rб1: <span id="baseResistance1"></span></p>
-            <p>Сопротивление базы Rб2: <span id="baseResistance2"></span></p>
-            
-            <p>Сопротивление эмиттера Rэ: <span id="emitterResistance"></span></p>
-            <p>Рекомендуемая емкость конденсаторов С1 и C2, не менее: <span id="capacitorValue"></span></p>
-        </div>
-    </div>
     </div>
 
     <script>
@@ -54,13 +132,11 @@
             var collectorCurrentA = parseFloat(document.getElementById("collectorCurrentA").value);
             var minFrequency = parseFloat(document.getElementById("minFrequency").value);
 
-
             if (isNaN(supplyVoltage) || isNaN(transistorGain) || isNaN(collectorCurrentA) || isNaN(minFrequency) ||
-        supplyVoltage <= 0 || transistorGain <= 0 || collectorCurrentA <= 0 || minFrequency <= 0) {
-        alert("Проверьте введенные значения.");
-        return;
-    }
-
+                supplyVoltage <= 0 || transistorGain <= 0 || collectorCurrentA <= 0 || minFrequency <= 0) {
+                alert("Проверьте введенные значения.");
+                return;
+            }
 
             var collectorCurrent = collectorCurrentA / 1000;
             var currentBase = collectorCurrent / transistorGain;
@@ -69,47 +145,160 @@
             var voltageResistanseEmitter = supplyVoltage * 0.05;
             var voltageResistanseCollector = (supplyVoltage - voltageResistanseEmitter) / 2;
 
-            var baseResistance1 = 1000000*((supplyVoltage/2) / currentDivider) ;
-            var baseResistance2 = 1000000*((supplyVoltage/2) / (currentDivider - currentBase)) ;
+            var baseResistance1 = 1000000 * ((supplyVoltage / 2) / currentDivider);
+            var baseResistance2 = 1000000 * ((supplyVoltage / 2) / (currentDivider - currentBase));
            
             var emitterResistance = voltageResistanseEmitter / (currentBase + collectorCurrent);
 
-
-          
-            var capacitorValue =1000* ( 1/ (2*3.14*minFrequency));
+            var capacitorValue = 1000 * (1 / (2 * 3.14 * minFrequency));
 
             document.getElementById("baseResistance1").innerHTML = baseResistance1.toFixed(1) + " Ом";
-            document.getElementById("baseResistance2").innerHTML = baseResistance2.toFixed(1)+ " Ом";
+            document.getElementById("baseResistance2").innerHTML = baseResistance2.toFixed(1) + " Ом";
            
-            document.getElementById("emitterResistance").innerHTML = emitterResistance.toFixed(1)+ " Ом";
-            document.getElementById("capacitorValue").innerHTML = capacitorValue.toFixed(2)+ " мкФ";
+            document.getElementById("emitterResistance").innerHTML = emitterResistance.toFixed(1) + " Ом";
+            document.getElementById("capacitorValue").innerHTML = capacitorValue.toFixed(2) + " мкФ";
         }
+
+       (function setupFriendScene(){
+    var overlay = document.createElement('div');
+    overlay.className = 'friend-overlay';
+    overlay.id = 'friendOverlay';
+
+    var seqImg = document.createElement('img');
+    seqImg.className = 'seq-img';
+    seqImg.id = 'friendSeqImg';
+    overlay.appendChild(seqImg);
+
+    var textBlock = document.createElement('div');
+    textBlock.id = 'friendText';
+    textBlock.style.position = 'absolute';
+    textBlock.style.bottom = '150px';
+    textBlock.style.width = '100%';
+    textBlock.style.textAlign = 'center';
+    textBlock.style.fontSize = '24px';
+    textBlock.style.color = 'white';
+    textBlock.style.whiteSpace = 'pre';
+    textBlock.style.opacity = '1';
+    textBlock.style.transition = 'opacity 0.5s linear';
+    overlay.appendChild(textBlock);
+
+    document.body.appendChild(overlay);
+
+    var preload = [
+        'DEVICE/image1.png',
+        'DEVICE/image2.png',
+        'DEVICE/image3.png',
+        'DEVICE/laught1.png',
+        'DEVICE/laught2.png',
+        'DEVICE/friend.png'
+    ];
+    var cache = [];
+    preload.forEach(function(src){
+        var i = new Image();
+        i.src = src;
+        cache.push(i);
+    });
+
+    var audio = new Audio('DEVICE/snd_crowd_laught.mp3');
+    audio.preload = 'auto';
+
+    function typeText(text, callback){
+        var i = 0;
+        textBlock.textContent = '';
+        textBlock.style.opacity = '1';
+        var interval = setInterval(function(){
+            textBlock.textContent += text[i];
+            i++;
+            if(i >= text.length){
+                clearInterval(interval);
+                if(callback) callback();
+            }
+        }, 50);
+    }
+
+    function fadeOutText(callback){
+        textBlock.style.opacity = '0';
+        setTimeout(callback, 500);
+    }
+
+    function runFriendSequence(){
+        document.title = "im your friend";
+        document.body.classList.add('friend-active');
+        overlay.classList.add('show');
+        seqImg.style.display = 'none';
+
+        setTimeout(()=>{ seqImg.src = 'DEVICE/image1.png'; seqImg.style.display='block'; }, 1500);
+        setTimeout(()=>{ seqImg.src = 'DEVICE/image2.png'; }, 3000);
+        setTimeout(()=>{
+            seqImg.src = 'DEVICE/image3.png';
+            setTimeout(()=>{
+                typeText("don't forget...", ()=>{
+                    setTimeout(()=>{
+                        typeText("i with you in the dark", ()=>{
+                            setTimeout(()=>{
+                                fadeOutText(()=>{
+                                    var frames = 10;
+                                    var i = 0;
+                                    audio.currentTime = 0;
+                                    audio.play().catch(()=>{});
+                                    var laughInterval = setInterval(function(){
+                                        seqImg.src = (i%2===0)?'DEVICE/laught1.png':'DEVICE/laught2.png';
+                                        i++;
+                                        if(i>=frames){
+                                            clearInterval(laughInterval);
+                                            setTimeout(()=>{ window.location.href='index.html'; },50);
+                                        }
+                                    },150);
+                                });
+                            },1500);
+                        });
+                    },1500);
+                });
+            },1500);
+        },4500);
+    }
+
+    window.runFriendSequence = runFriendSequence;
+})();
+
+        // --- hook к кнопке расчета ---
+        (function attachCalcHook(){
+            var btn = document.getElementById('calcBtn');
+            if (!btn) return;
+            btn.addEventListener('click', function(){
+                var roll = Math.random();
+                if (roll < 0.1) {
+                    try {
+                        window.runFriendSequence();
+                    } catch (e) {
+                        console.error('Error running friend sequence', e);
+                        calculateResistances(); // Исправлено: вызываем правильную функцию
+                    }
+                } else {
+                    calculateResistances(); // Исправлено: вызываем правильную функцию
+                }
+            }, false);
+        })();
     </script>
 
-<div class="note">
+    <div class="note">
+        <p>Схема включения с общим коллектором (эмиттерный повторитель) является одной из трех возможных конфигураций транзисторных усилителей на биполярном транзисторе. В данной схеме включения сигнал поступает на базу транзистора и снимается с эмиттера. Коллектор же подключается к общему проводу. Как правило, в аналоговой схемотехнике данный тип включения используется для согласования предоконечного каскада (в качестве буферного каскада) с нагрузкой, имеющей малые номиналы.</p>
 
-   <p> Схема включения с общим коллектором (эмиттерный повторитель) является является одной из трех возможных конфигураций транзисторных усилителей на биполярном транзисторе. В данной схеме включения сигнал поступает на базу транзистора и снимается с эмиттера. Коллектор же подключается к общему проводу. Как правило, в аналоговой схемотехнике данный тип включения используется для согласования предоконечного каскада (в качестве буферного каскада) с нагрузкой, имеющей малые номиналы.</p>
+        <p>Достоинства схемы:
+            <li>Большое входное сопротивление и низкое выходное, что позволяет использовать общий коллектор как буферный согласующий каскад между источником напряжения (генератором) и маленькой нагрузкой.</li>
+            <li>Не инвертирует напряжение, но инвертирует фазу тока на 180 градусов.</li>
+            <li>Высокая термостабильность.</li></p>
+        
+        <p>Недостатки схемы:
+            <li>Не усиливает по напряжению (коэффициент связи по напряжению составляет примерно 0.9 - 0.95).</li>
+            <li>Высокая чувствительность к помехам и тепловым шумам ввиду особенностей данной схемы включения (основной вклад вносят резисторы с большим номиналом).</li>
+        </p>
+    </div>
 
-    <p>Достоинства схемы:
-        <li>Большое входное сопротивление и низкое выходное, что позволяет использовать общий коллектор как буферный согласующий каскад между источником напряжения (генератором) и маленькой нагрузкой.</li>
-        <li>Не инвертирует напряжение, но инвертирует фазу тока на 180 градусов.</li>
-       <li> Высокая термостабильность.</li></p>
-    
-    <p>
-        Недостатки схемы:
-    <li>Не усиливает по напряжению (коэффициент связи по напряжению составляет примерно 0.9 - 0.95).</li>
-   <li> Высокая чувствительность к помехам и тепловым шумам ввиду особенностей данной схемы включения (основной вклад вносят резисторы с большим номиналом).</li>
-    </p>
-    
-
-</div>
-
-
-<section class="end">
-    <div class="bottom">
-        <h1 class="b_name">© Все на этом сайте защищено</h1>           
+    <section class="end">
+        <div class="bottom">
+            <h1 class="b_name">© Все на этом сайте защищено</h1>           
         </div>
-</section>
-
+    </section>
 </body>
 </html>

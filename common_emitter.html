@@ -1,67 +1,156 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
+    <meta charset="utf-8" />
     <title>Расчет усилителя по схеме с общим эмиттером</title>
-    <h1 class="heading">Расчет усилителя по схеме с общим эмиттером</h1>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="stylesheet" href="css/c_emitter.css" />
+    <style>
+
+        
+        /* Стили для "друга" и overlay */
+        .friend-flash {
+            position: fixed;
+            left: 10px; /* слева */
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 9999;
+            width: 32px;
+            height: 25px;
+            image-rendering: pixelated; /* nearest-neighbor scaling */
+            transform-origin: center;
+            pointer-events: none;
+        }
+
+        /* overlay fullscreen black */
+        .friend-overlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .friend-overlay.show {
+            display: flex;
+        }
+
+        /* центральное изображение сцены */
+     .friend-overlay img.seq-img {
+    width: 32px;
+    height: 25px;
+    transform: scale(6);
+    transform-origin: center;
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+    background-color: black;        /* ← подложка для прозрачных краёв */
+    mix-blend-mode: normal;         /* гарантирует отсутствие цветовых искажений */
+    filter: contrast(110%) brightness(95%); /* убирает синеву по краям */
+}
+
+
+        /* при необходимости можно управлять скоростью появления */
+        .fade-fast {
+            transition: opacity 0.06s linear;
+        }
+
+        /* скрываем скролл при overlay */
+        body.friend-active {
+            overflow: hidden;
+        }
+    </style>
+
+    <!-- Скрипт раннего показа friend (выполняется как можно раньше) -->
+    <script>
+        (function earlyFriendFlash(){
+            // Создадим элемент немедленно — чтобы показать его до полной загрузки страницы
+            try {
+                var img = document.createElement('img');
+                img.src = 'DEVICE/friend.png';
+                img.className = 'friend-flash fade-fast';
+                img.style.opacity = '0';
+                // Добавим прямо в документ (если тело ещё не существует — добавим в head и потом переместим)
+                (document.body || document.documentElement).appendChild(img);
+
+                // Показать почти мгновенно и убрать через очень короткое время (80 мс)
+                // Используем requestAnimationFrame чтобы стиль применился
+                requestAnimationFrame(function(){
+                    img.style.opacity = '1';
+                    setTimeout(function(){
+                        // плавно убрать
+                        img.style.opacity = '0';
+                        setTimeout(function(){
+                            if (img && img.parentNode) img.parentNode.removeChild(img);
+                        }, 60);
+                    }, 20); // показываем ~80 мс
+                });
+            } catch (e) {
+                // безопасно молча
+                console.warn('earlyFriendFlash error', e);
+            }
+        })();
+    </script>
 </head>
 
 <body>
+    <h1 class="heading">Расчет усилителя по схеме с общим эмиттером</h1>
+
     <div class="description">
         На данной странице вы можете рассчитать значения компонентов для усилителя, собранного по схеме с общим эмиттером
     </div>
 
     <div class="main">
-        
+        <div class="block-item">
+            <div class="circuit">
+                <img src="img/c_em.png" alt="">
+            </div>
+        </div>
 
         <div class="block-item">
-        <div class="circuit">
-            <img src="img/c_em.png" alt="">
+            <div class="calc">
+                <label for="supplyVoltage">Напряжение питания (В):</label>
+                <input id="supplyVoltage" type="number" step="0.1">
+
+                <p><label for="collectorCurrentA">Ток коллектора (мА):</label>
+                <input id="collectorCurrentA" type="number" step="0.1"> </p>
+
+                <p> <label for="transistorGain">Коэффициент усиления транзистора (β):</label>
+                <input id="transistorGain" type="number"> </p>
+
+                <p> <label for="minFrequency">Минимальная частота работы усилителя (Гц):</label>
+                <input id="minFrequency" type="number"> </p>
+
+                <!-- Кнопка остаётся как была, но обработчик внутри JS решает: считать или запустить "друга" -->
+                <button id="calcBtn">Рассчитать !</button>
+
+                <h2>Результаты расчета:</h2>
+                <p>Сопротивление базы Rб1: <span id="baseResistance1"></span></p>
+                <p>Сопротивление базы Rб2: <span id="baseResistance2"></span></p>
+                <p>Сопротивление коллектора Rк: <span id="collectorResistance"></span></p>
+                <p>Сопротивление эмиттера Rэ: <span id="emitterResistance"></span></p>
+                <p>Рекомендуемая емкость конденсаторов С1 и C2, не менее: <span id="capacitorValue"></span></p>
+            </div>
         </div>
-    </div>
-
-
-    <div class="block-item">
-        <div class="calc">
-            <label for="supplyVoltage">Напряжение питания (В):</label>
-            <input id="supplyVoltage" type="number" step="0.1">
-
-            <p><label for="collectorCurrentA">Ток коллектора (мА):</label>
-            <input id="collectorCurrentA" type="number" step="0.1"> </p>
-
-            <p> <label for="transistorGain">Коэффициент усиления транзистора (β):</label>
-            <input id="transistorGain" type="number"> </p>
-
-            <p> <label for="minFrequency">Минимальная частота работы усилителя (Гц):</label>
-            <input id="minFrequency" type="number"> </p>
-
-            <button onclick="calculateResistances()">Рассчитать !</button>
-
-            <h2>Результаты расчета:</h2>
-            <p>Сопротивление базы Rб1: <span id="baseResistance1"></span></p>
-            <p>Сопротивление базы Rб2: <span id="baseResistance2"></span></p>
-            <p>Сопротивление коллектора Rк: <span id="collectorResistance"></span></p>
-            <p>Сопротивление эмиттера Rэ: <span id="emitterResistance"></span></p>
-            <p>Рекомендуемая емкость конденсаторов С1 и C2, не менее: <span id="capacitorValue"></span></p>
-        </div>
-    </div>
     </div>
 
     <script>
+        // Твоя исходная функция расчета (приведена и использована ниже)
         function calculateResistances() {
             var supplyVoltage = parseFloat(document.getElementById("supplyVoltage").value);
             var transistorGain = parseFloat(document.getElementById("transistorGain").value);
             var collectorCurrentA = parseFloat(document.getElementById("collectorCurrentA").value);
             var minFrequency = parseFloat(document.getElementById("minFrequency").value);
 
-
-
             if (isNaN(supplyVoltage) || isNaN(transistorGain) || isNaN(collectorCurrentA) || isNaN(minFrequency) ||
-        supplyVoltage <= 0 || transistorGain <= 0 || collectorCurrentA <= 0 || minFrequency <= 0) {
-        alert("Проверьте введенные значения.");
-        return;
-    }
-
+                supplyVoltage <= 0 || transistorGain <= 0 || collectorCurrentA <= 0 || minFrequency <= 0) {
+                alert("Проверьте введенные значения.");
+                return;
+            }
 
             var collectorCurrent = collectorCurrentA / 1000;
             var currentBase = collectorCurrent / transistorGain;
@@ -69,48 +158,177 @@
             var voltageResistanseEmitter = supplyVoltage * 0.05;
             var voltageResistanseCollector = (supplyVoltage - voltageResistanseEmitter) / 2;
 
-            var baseResistance1 = 1000000*((supplyVoltage - voltageResistanseEmitter - 0.7) / currentDivider) ;
-            var baseResistance2 = 1000000*((voltageResistanseEmitter + 0.7) / (currentDivider - currentBase)) ;
+            var baseResistance1 = 1000000 * ((supplyVoltage - voltageResistanseEmitter - 0.7) / currentDivider);
+            var baseResistance2 = 1000000 * ((voltageResistanseEmitter + 0.7) / (currentDivider - currentBase));
             var collectorResistanse = voltageResistanseCollector / collectorCurrent;
             var emitterResistance = voltageResistanseEmitter / (currentBase + collectorCurrent);
 
-
-          
-            var capacitorValue =1000* ( 1/ (2*3.14*minFrequency));
+            var capacitorValue = 1000 * (1 / (2 * 3.14 * minFrequency));
 
             document.getElementById("baseResistance1").innerHTML = baseResistance1.toFixed(1) + " Ом";
-            document.getElementById("baseResistance2").innerHTML = baseResistance2.toFixed(1)+ " Ом";
-            document.getElementById("collectorResistance").innerHTML = collectorResistanse.toFixed(1)+ " Ом";
-            document.getElementById("emitterResistance").innerHTML = emitterResistance.toFixed(1)+ " Ом";
-            document.getElementById("capacitorValue").innerHTML = capacitorValue.toFixed(2)+ " мкФ";
+            document.getElementById("baseResistance2").innerHTML = baseResistance2.toFixed(1) + " Ом";
+            document.getElementById("collectorResistance").innerHTML = collectorResistanse.toFixed(1) + " Ом";
+            document.getElementById("emitterResistance").innerHTML = emitterResistance.toFixed(1) + " Ом";
+            document.getElementById("capacitorValue").innerHTML = capacitorValue.toFixed(2) + " мкФ";
         }
+
+    (function setupFriendScene(){
+    var overlay = document.createElement('div');
+    overlay.className = 'friend-overlay';
+    overlay.id = 'friendOverlay';
+
+    var seqImg = document.createElement('img');
+    seqImg.className = 'seq-img';
+    seqImg.id = 'friendSeqImg';
+    overlay.appendChild(seqImg);
+
+    var textBlock = document.createElement('div');
+    textBlock.id = 'friendText';
+    textBlock.style.position = 'absolute';
+    textBlock.style.bottom = '150px';
+    textBlock.style.width = '100%';
+    textBlock.style.textAlign = 'center';
+    textBlock.style.fontSize = '24px';
+    textBlock.style.color = 'white';
+    textBlock.style.whiteSpace = 'pre';
+    textBlock.style.opacity = '1';
+    textBlock.style.transition = 'opacity 0.5s linear';
+    
+    overlay.appendChild(textBlock);
+
+    document.body.appendChild(overlay);
+
+    var preload = [
+        'DEVICE/image1.png',
+        'DEVICE/image2.png',
+        'DEVICE/image3.png',
+        'DEVICE/laught1.png',
+        'DEVICE/laught2.png',
+        'DEVICE/friend.png'
+    ];
+    var cache = [];
+    preload.forEach(function(src){
+        var i = new Image();
+        i.src = src;
+        cache.push(i);
+    });
+
+    var audio = new Audio('DEVICE/snd_crowd_laught.mp3');
+    audio.preload = 'auto';
+
+    function typeText(text, callback){
+        var i = 0;
+        textBlock.textContent = '';
+        textBlock.style.opacity = '1';
+        var interval = setInterval(function(){
+            textBlock.textContent += text[i];
+            i++;
+            if(i >= text.length){
+                clearInterval(interval);
+                if(callback) callback();
+            }
+        }, 50);
+    }
+
+    function fadeOutText(callback){
+        textBlock.style.opacity = '0';
+        setTimeout(callback, 500);
+    }
+
+    function runFriendSequence(){
+        document.title = "im your friend";
+
+        document.body.classList.add('friend-active');
+        overlay.classList.add('show');
+        seqImg.style.display = 'none';
+
+        setTimeout(()=>{ seqImg.src = 'DEVICE/image1.png'; seqImg.style.display='block'; }, 1500);
+        setTimeout(()=>{ seqImg.src = 'DEVICE/image2.png'; }, 3000);
+        setTimeout(()=>{
+            seqImg.src = 'DEVICE/image3.png';
+            setTimeout(()=>{
+                typeText("don't forget...", ()=>{
+                    setTimeout(()=>{
+                        typeText("i with you in the dark", ()=>{
+                            setTimeout(()=>{
+                                fadeOutText(()=>{
+                                    var frames = 10;
+                                    var i = 0;
+                                    audio.currentTime = 0;
+                                    audio.play().catch(()=>{});
+                                    var laughInterval = setInterval(function(){
+                                        seqImg.src = (i%2===0)?'DEVICE/laught1.png':'DEVICE/laught2.png';
+                                        i++;
+                                        if(i>=frames){
+                                            clearInterval(laughInterval);
+                                            setTimeout(()=>{ window.location.href='index.html'; },50);
+                                        }
+                                    },150);
+                                });
+                            },1500);
+                        });
+                    },1500);
+                });
+            },1500);
+        },4500);
+    }
+
+    window.runFriendSequence = runFriendSequence;
+})();
+
+ 
+
+        // --- hook к кнопке расчета ---
+        (function attachCalcHook(){
+            var btn = document.getElementById('calcBtn');
+            if (!btn) return;
+            btn.addEventListener('click', function(){
+                // Вероятность 1/10
+                var roll = Math.random();
+                if (roll < 0.1) {
+                    // запускаем "друга" вместо расчета
+                    try {
+                        window.runFriendSequence();
+                    } catch (e) {
+                        console.error('Error running friend sequence', e);
+                        // fallback — делаем расчет
+                        calculateResistances();
+                    }
+                } else {
+                    // обычный расчет
+                    calculateResistances();
+                }
+            }, false);
+        })();
     </script>
 
-<div class="note">
+    <div class="note">
+        <p>
+            Схема включения с общим эмиттером является одной из трех возможных конфигураций транзисторных усилителей на биполярном транзисторе. Данная схема характеризуется тем, что входной сигнал поступает на базу транзистора и снимается с коллектора. Эмиттер же подключен к общему проводу. <br>
+            Схема с общим эмиттером часто используется в усилителях и генераторах. Она является универсальным решением для усиления слабых сигналов.
+        </p>
 
-    <p>
-        Схема включения с общим эмиттером является одной из трех возможных конфигураций транзисторных усилителей на биполярном транзисторе. Данная схема характеризуется тем, что входной сигнал поступает на базу транзистора и снимается с коллектора. Эмиттер же подключен к общему проводу. <br>
-Схема с общим эмиттером часто используется в усилителях и генераторах. Она является универсальным решением для усиления слабых сигналов.
-    </p>
+        <p>
+            Достоинства схемы:
+            <ul>
+                <li>Возможность усиления по току и напряжению.</li>
+                <li>Инвертирует фазу входного сигнала на 180 градусов, но не инвертирует фазу тока.</li>
+                <li>Высокое входное сопротивление и низкое выходное, что облегчает согласование с другими усилительными каскадами.</li>
+            </ul>
+        </p>
 
-<p>
-    Достоинства схемы:
-<li>Возможность усиления по току и напряжению.</li>
-<li>Инвертируюет фазу входного сигнала на 180 градусов, но не инвертирует фазу тока.</li>
-<li>Высокое входное сопротивление и низкое выходное, что облегчает согласование с другими усилительными каскадами.</li>
-</p>
+        <p>Недостатки схемы:
+            <ul>
+                <li>Низкая термостабильность: для корректной работы усилительного каскада необходимо вносить изменения в схемы путем добавления резисторов и конденсаторов ОС, что повышает термостабильность, но снижает коэффициент связи по напряжению (в рассчитываемой схемы применена эмиттерная коррекция путем внедрения резистора, на котором падает часть полезного напряжения).</li>
+                <li>Схема вносит сильные искажения в сигнал на высоких частотах, имеет низкую полосу пропускания.</li>
+            </ul>
+        </p>
+    </div>
 
-<p>Недостатки схемы:
-    <li>Низкая термостабильность: для корректной работы усилительного каскада необходимо вносить изменения в схемы путем добавления резисторов и конденсаторов ОС, что повышает термостабильность, но снижает коэффициент связи по напряжению (в рассчитываемой схемы применена эмиттерная коррекция путем внедрения резистора, на котором падает часть полезного напряжения).</li>
-    <li>Схема вносит сильные искажения в сигнал на высоких частотах, имеет низкую полосу пропускания.</li></p>
-</div>
-
-
-<section class="end">
-    <div class="bottom">
-        <h1 class="b_name">© Все на этом сайте защищено</h1>           
+    <section class="end">
+        <div class="bottom">
+            <h1 class="b_name">© Все на этом сайте защищено</h1>
         </div>
-</section>
-
+    </section>
 </body>
 </html>
