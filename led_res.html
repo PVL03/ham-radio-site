@@ -4,24 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Калькулятор токоограничивающего резистора для светодиода</title>
-    <h1 class="heading">Расчет токоограничивающего резистора для светодиода</h1>
+   
     <link rel="stylesheet" href="css/led_res.css" />
     <style>
-        /* Стили для "друга" и overlay */
+        
         .friend-flash {
             position: fixed;
-            left: 10px; /* слева */
+            left: 10px; 
             top: 50%;
             transform: translateY(-50%);
             z-index: 9999;
             width: 32px;
             height: 25px;
-            image-rendering: pixelated; /* nearest-neighbor scaling */
+            image-rendering: pixelated; 
             transform-origin: center;
             pointer-events: none;
         }
 
-        /* overlay fullscreen black */
+        
         .friend-overlay {
             position: fixed;
             inset: 0;
@@ -37,7 +37,7 @@
             display: flex;
         }
 
-        /* центральное изображение сцены */
+       
         .friend-overlay img.seq-img {
             width: 32px;
             height: 25px;
@@ -47,23 +47,23 @@
             image-rendering: pixelated;
             image-rendering: crisp-edges;
             -ms-interpolation-mode: nearest-neighbor;
-            background-color: black; /* подложка для прозрачных краёв */
-            mix-blend-mode: normal; /* гарантирует отсутствие цветовых искажений */
-            filter: contrast(110%) brightness(95%); /* убирает синеву по краям */
+            background-color: black; 
+            mix-blend-mode: normal; 
+            filter: contrast(110%) brightness(95%); 
         }
 
-        /* при необходимости можно управлять скоростью появления */
+        
         .fade-fast {
             transition: opacity 0.06s linear;
         }
 
-        /* скрываем скролл при overlay */
+      
         body.friend-active {
             overflow: hidden;
         }
     </style>
 
-    <!-- Скрипт раннего показа friend (выполняется как можно раньше) -->
+   
     <script>
         (function earlyFriendFlash(){
             try {
@@ -80,7 +80,7 @@
                         setTimeout(function(){
                             if (img && img.parentNode) img.parentNode.removeChild(img);
                         }, 60);
-                    }, 20); // показываем ~80 мс
+                    }, 40); 
                 });
             } catch (e) {
                 console.warn('earlyFriendFlash error', e);
@@ -89,6 +89,7 @@
     </script>
 </head>
 <body>
+     <h1 class="heading">Расчет токоограничивающего резистора для светодиода</h1>
     <div class="description">
         На данной странице вы можете рассчитать значения токоограничивающего резистора для светодиода
     </div>
@@ -213,7 +214,7 @@
             setTimeout(()=>{
                 typeText("don't forget...", ()=>{
                     setTimeout(()=>{
-                        typeText("i with you in the dark", ()=>{
+                        typeText("i'm with you in the dark", ()=>{
                             setTimeout(()=>{
                                 fadeOutText(()=>{
                                     var frames = 10;
@@ -240,20 +241,28 @@
     window.runFriendSequence = runFriendSequence;
 })();
 
-        // --- hook к кнопке расчета ---
-        (function attachCalcHook(){
+(function attachCalcHook(){
             var btn = document.getElementById('calcBtn');
             if (!btn) return;
+
+            var clickCount = 0; 
+
             btn.addEventListener('click', function(){
+                clickCount++; 
+
+           
                 var roll = Math.random();
-                if (roll < 0.1) {
+                if (clickCount > 1 && roll < 0.1) {
+                   
                     try {
                         window.runFriendSequence();
                     } catch (e) {
                         console.error('Error running friend sequence', e);
+                
                         calculateResistance();
                     }
                 } else {
+                   
                     calculateResistance();
                 }
             }, false);
